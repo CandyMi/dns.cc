@@ -22,7 +22,7 @@ cmake_minimum_required(VERSION 2.8...3.13)
 set(CMAKE_LEGACY_CYGWIN_WIN32 0)
 
 # 文件列表
-file(GLOB xdns_src ${CMAKE_SOURCE_DIR}/src/*.cc)
+file(GLOB xdns_src ${CMAKE_SOURCE_DIR}/*.cc)
 
 if (MSVC)
   add_compile_options(/Za)
@@ -45,7 +45,7 @@ endif(WIN32)
 
 # 如果存在main.c测试文件，则添加可执行文件
 if (EXISTS ${CMAKE_SOURCE_DIR}/main.c)
-  add_executable(main main.c)
+	add_executable(main main.c)
   target_link_libraries(main PRIVATE xdns_object)
 endif()
 
