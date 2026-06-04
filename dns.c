@@ -38,9 +38,25 @@ static const dns_error_info_t dns_errors[] =
 /*  Global state                                                       */
 /* ------------------------------------------------------------------ */
 
-/* Single-threaded DNS client — caller serializes if needed.
- * Plain static is zero-cost vs _Atomic / std::atomic. */
+/* ------------------------------------------------------------------ */
+/*  TID generator — atomic increment, cross-platform                    */
+/* ------------------------------------------------------------------ */
 static uint16_t dns_tid = 1;
+
+static inline uint16_t dns_tid_next(void)
+{
+#if defined(__GNUC__) || defined(__clang__)
+  /* GCC 4.7+ / Clang 3.3+ — relaxed ordering is sufficient for a
+   * monotonic counter; no memory barrier needed.                     */
+  return (uint16_t)__atomic_fetch_add(&dns_tid, 1, __ATOMIC_RELAXED);
+#elif defined(_MSC_VER)
+  /* MSVC 2010+ — InterlockedIncrement16 returns the *new* value.   */
+  return (uint16_t)(_InterlockedIncrement16((short volatile *)&dns_tid) - 1);
+#else
+  /* Fallback — NOT thread-safe.                                     */
+  return dns_tid++;
+#endif
+}
 
 /* Unsafe mode: skip TID + flags validation. */
 static int dns_unsafe = 0;
@@ -293,9 +309,9 @@ int dns_query(dns_req_t *req, dns_type_t type, const char *domain,
     return DNS_EBADTYPE;
 
   /* Allocate TID (skip zero — RFC 1035 discourages it for queries). */
-  tid = dns_tid++;
+  tid = dns_tid_next();
   if (!tid)
-    tid = dns_tid++;
+    tid = dns_tid_next();
   req->tid  = tid;
   req->type = type;
   req->cls  = DNS_IN;
