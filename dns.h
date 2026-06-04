@@ -9,7 +9,32 @@
 #include <stdlib.h>
 #include <stdbool.h>
 
-#define dns_export extern
+/* ------------------------------------------------------------------ */
+/*  Cross-platform symbol visibility                                    */
+/*                                                                      */
+/*  Building the DLL:       define DNS_BUILD_DLL  → dllexport           */
+/*  Consuming the DLL:      (no define)           → dllimport           */
+/*  Static linking:         define DNS_STATIC     → plain extern        */
+/* ------------------------------------------------------------------ */
+#if defined(_WIN32) || defined(_MSC_VER)
+  #ifdef DNS_BUILD_DLL
+    #define dns_export __declspec(dllexport)
+  #elif defined(DNS_STATIC)
+    #define dns_export extern
+  #else
+    #define dns_export __declspec(dllimport)
+  #endif
+#else
+  #if (defined(__GNUC__) && __GNUC__ >= 4) || defined(__clang__)
+    #define dns_export extern __attribute__((visibility("default")))
+  #else
+    #define dns_export extern
+  #endif
+#endif
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #define DNS_MAX_BUF_SIZE  (4096)
 
@@ -108,5 +133,9 @@ dns_export dns_type_t dns_get_type(const dns_ans_t *ans);
 dns_export dns_class_t dns_get_class(const dns_ans_t *ans);
 
 dns_export uint32_t dns_get_ttl(const dns_ans_t *ans);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __XDNS__ */
