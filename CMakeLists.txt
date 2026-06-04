@@ -22,7 +22,7 @@ cmake_minimum_required(VERSION 2.8...3.13)
 set(CMAKE_LEGACY_CYGWIN_WIN32 0)
 
 # 文件列表
-file(GLOB xdns_src ${CMAKE_SOURCE_DIR}/*.cc)
+file(GLOB xdns_src ${CMAKE_SOURCE_DIR}/*.c)
 
 if (MSVC)
   add_compile_options(/Za)
