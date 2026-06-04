@@ -45,16 +45,34 @@ static uint16_t dns_tid = 1;
 
 static inline uint16_t dns_tid_next(void)
 {
+  /* CAS loop — guarantees tid ∈ [1, 65535], never returns 0.
+   * Wraps from 65535 → 1 atomically, without a transient 0 state.  */
 #if defined(__GNUC__) || defined(__clang__)
-  /* GCC 4.7+ / Clang 3.3+ — relaxed ordering is sufficient for a
-   * monotonic counter; no memory barrier needed.                     */
-  return (uint16_t)__atomic_fetch_add(&dns_tid, 1, __ATOMIC_RELAXED);
+  /* GCC 4.7+ / Clang 3.3+                                          */
+  uint16_t old, want;
+  old = __atomic_load_n(&dns_tid, __ATOMIC_RELAXED);
+  do {
+    want = old + 1;
+    if (want == 0) want = 1;
+  } while (!__atomic_compare_exchange_n(&dns_tid, &old, want, 0,
+                                        __ATOMIC_RELAXED, __ATOMIC_RELAXED));
+  return old;
 #elif defined(_MSC_VER)
-  /* MSVC 2010+ — InterlockedIncrement16 returns the *new* value.   */
-  return (uint16_t)(_InterlockedIncrement16((short volatile *)&dns_tid) - 1);
+  /* MSVC 2010+                                                     */
+  short old, want, prev;
+  for (old = *(short volatile *)&dns_tid; ; old = prev) {
+    want = old + 1;
+    if (want == 0) want = 1;
+    prev = _InterlockedCompareExchange16(
+        (short volatile *)&dns_tid, want, old);
+    if (prev == old) break;
+  }
+  return (uint16_t)old;
 #else
-  /* Fallback — NOT thread-safe.                                     */
-  return dns_tid++;
+  /* Fallback — NOT thread-safe.                                    */
+  uint16_t old = dns_tid++;
+  if (old == 0) old = dns_tid++;   /* never returns 0               */
+  return old;
 #endif
 }
 
@@ -301,18 +319,14 @@ int dns_query(dns_req_t *req, dns_type_t type, const char *domain,
   int blen = 0, n = 0;
   unsigned char       *buf = (unsigned char *)buffer;
   dns_names_t names[DNS_NAMES_MAX];
-  uint16_t tid;
 
   if (!req || !buffer || !domain)
     return DNS_EBADARG;
   if (type != DNS_A && type != DNS_AAAA)
     return DNS_EBADTYPE;
 
-  /* Allocate TID (skip zero — RFC 1035 discourages it for queries). */
-  tid = dns_tid_next();
-  if (!tid)
-    tid = dns_tid_next();
-  req->tid  = tid;
+  /* TID — dns_tid_next() guarantees [1, 65535], never 0. */
+  req->tid = dns_tid_next();
   req->type = type;
   req->cls  = DNS_IN;
 
