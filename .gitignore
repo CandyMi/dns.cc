@@ -33,3 +33,7 @@
 
 # builld
 build
+
+# Compiled test/demo binaries
+/main
+/test_dns
