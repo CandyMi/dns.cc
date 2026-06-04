@@ -32,10 +32,18 @@ typedef enum dns_type
   DNS_AAAA  = 28,
 } dns_type_t;
 
+/* Backward-compatible aliases for v1.x callers */
+#define A     DNS_A
+#define NS    DNS_NS
+#define CNAME DNS_CNAME
+#define AAAA  DNS_AAAA
+
 typedef enum dns_class
 {
   DNS_IN    = 1,
 } dns_class_t;
+
+#define IN    DNS_IN
 
 typedef uint16_t dns_tid_t;
 
